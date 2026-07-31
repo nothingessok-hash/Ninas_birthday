@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>15</title>
+<style>
+  /* ============================================================
+     EDITABLE SETTINGS
+     Everything you're likely to want to change lives here.
+     ============================================================ */
+  :root{
+    --bg: #030304;
+    --green: #45ff8f;
+    --green-dim: #0f5c30;
+    --violet: #7c5cff;
+    --violet-deep: #2a1155;
+    --ink: #f4f2ff;
+    --ink-dim: #9d97b8;
+    --star: #ffffff;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+  }
+
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body{
+    margin:0; padding:0; width:100%; height:100%;
+    background: var(--bg);
+    overscroll-behavior: none;
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  body{
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    -webkit-user-select: none; user-select: none;
+  }
+
+  #app{
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .scene{
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.9s ease, filter 0.9s ease;
+    filter: blur(6px);
+    padding: calc(var(--safe-top) + 16px) calc(var(--safe-right) + 16px) calc(var(--safe-bottom) + 16px) calc(var(--safe-left) + 16px);
+  }
+  .scene.active{
+    opacity: 1;
+    pointer-events: auto;
+    filter: blur(0px);
+  }
+  .scene.leaving{
+    opacity: 0;
+    filter: blur(10px);
+    transition: opacity 0.6s ease, filter 0.6s ease;
+  }
+
+  canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+
+  /* ---------- Scene 1: press ---------- */
+  #scene-press{ background: #000; }
+  .press-btn{
+    position: relative;
+    padding: 22px 52px;
+    font-size: 1.1rem;
+    letter-spacing: 0.35em;
+    text-transform: lowercase;
+    color: var(--ink);
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 999px;
+    cursor: pointer;
+    outline: none;
+    box-shadow: 0 0 18px rgba(124,92,255,0.25), 0 0 2px rgba(255,255,255,0.4) inset;
+    animation: pulseGlow 2.6s ease-in-out infinite;
+  }
+  @keyframes pulseGlow{
+    0%,100%{ box-shadow: 0 0 14px rgba(124,92,255,0.18), 0 0 2px rgba(255,255,255,0.3) inset; }
+    50%{ box-shadow: 0 0 32px rgba(124,92,255,0.42), 0 0 6px rgba(255,255,255,0.5) inset; }
+  }
+  .press-btn:active{ transform: scale(0.94); }
+
+  /* ---------- Scene 2: binary ---------- */
+  #scene-binary{ background:#000; }
+
+  /* ---------- Scene 3: tic tac toe ---------- */
+  #scene-ttt{ background: radial-gradient(circle at 50% 20%, #0c0616 0%, #030304 70%); flex-direction: column; gap: 22px; }
+  .ttt-wrap{ display:flex; flex-direction:column; align-items:center; gap: 22px; }
+  .ttt-title{ font-size: 0.85rem; letter-spacing: 0.25em; color: var(--ink-dim); text-transform: lowercase; }
+  .ttt-board{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    width: min(78vw, 320px);
+    height: min(78vw, 320px);
+  }
+  .ttt-cell{
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(124,92,255,0.35);
+    border-radius: 14px;
+    display:flex; align-items:center; justify-content:center;
+    font-size: 2.4rem;
+    color: var(--violet);
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease;
+  }
+  .ttt-cell.o{ color: var(--green); }
+  .ttt-cell:active{ transform: scale(0.95); }
+  .ttt-msg{
+    min-height: 1.6em;
+    font-size: 1.05rem;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+    max-width: 80vw;
+    color: var(--ink);
+    letter-spacing: 0.02em;
+  }
+  .ttt-msg.show{ opacity: 1; transform: translateY(0); }
+
+  /* ---------- Scene 4: moving button ---------- */
+  #scene-click{ background: radial-gradient(circle at 50% 80%, #0c0616 0%, #030304 75%); }
+  .click-btn{
+    position: absolute;
+    padding: 18px 34px;
+    font-size: 1rem;
+    letter-spacing: 0.2em;
+    text-transform: lowercase;
+    color: var(--ink);
+    background: rgba(69,255,143,0.06);
+    border: 1px solid rgba(69,255,143,0.5);
+    border-radius: 999px;
+    box-shadow: 0 0 20px rgba(69,255,143,0.25);
+    transition: top 0.45s cubic-bezier(.34,1.56,.64,1), left 0.45s cubic-bezier(.34,1.56,.64,1), opacity 0.4s ease;
+    cursor:pointer;
+  }
+  .click-hint{
+    position:absolute; top: calc(var(--safe-top) + 24px); left:0; right:0;
+    text-align:center; font-size: 0.8rem; letter-spacing:0.2em; color: var(--ink-dim);
+    text-transform: lowercase;
+  }
+
+  /* ---------- Scene 5: quiz ---------- */
+  #scene-quiz{ background: #030304; flex-direction:column; overflow-y:auto; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+  .quiz-wrap{ width:min(90vw, 440px); display:flex; flex-direction:column; gap: 18px; padding: 40px 0 60px; margin: 0 auto; }
+  .quiz-eyebrow{
+    text-align:center; font-size: 0.78rem; letter-spacing: 0.25em; color: var(--ink-dim);
+    text-transform: lowercase; margin-bottom: 8px;
+  }
+  .quiz-q{ display:flex; flex-direction:column; gap: 8px; }
+  .quiz-q label{ font-size: 0.95rem; color: var(--ink); text-transform: lowercase; letter-spacing: 0.01em; }
+  .quiz-q textarea{
+    resize:none;
+    min-height: 54px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(124,92,255,0.3);
+    border-radius: 12px;
+    padding: 12px 14px;
+    color: var(--ink);
+    font-size: 1rem;
+    font-family: inherit;
+    outline:none;
+  }
+  .quiz-q textarea:focus{ border-color: var(--violet); box-shadow: 0 0 14px rgba(124,92,255,0.25); }
+  .quiz-continue{
+    margin-top: 8px;
+    align-self:center;
+    padding: 14px 40px;
+    border-radius: 999px;
+    background: rgba(69,255,143,0.08);
+    border: 1px solid rgba(69,255,143,0.5);
+    color: var(--ink);
+    letter-spacing: 0.2em;
+    text-transform: lowercase;
+    font-size: 0.95rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease, transform 0.3s ease;
+    transform: translateY(6px);
+  }
+  .quiz-continue.ready{ opacity: 1; pointer-events:auto; transform: translateY(0); }
+
+  /* ---------- Scene 6: ocean ---------- */
+  #scene-ocean{ background:#03020a; touch-action: none; }
+  .ocean-hint{
+    position:absolute; top: calc(var(--safe-top) + 20px); left:0; right:0;
+    text-align:center; font-size: 0.78rem; letter-spacing: 0.14em; color: rgba(244,242,255,0.55);
+    text-transform: lowercase; padding: 0 20px; z-index: 5; pointer-events:none;
+  }
+
+  /* ---------- Scene 7: years ---------- */
+  #scene-years{ background:#000; }
+  .year-fly{
+    position:absolute;
+    font-weight: 700;
+    color: rgba(255,255,255,0.85);
+    white-space: nowrap;
+    will-change: transform, opacity;
+  }
+  .reveal-year{
+    font-size: clamp(3.5rem, 20vw, 8rem);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    text-shadow: 0 0 30px rgba(124,92,255,0.7), 0 0 70px rgba(124,92,255,0.35);
+    opacity: 0;
+    transform: scale(0.7);
+    transition: opacity 1.2s ease, transform 1.2s cubic-bezier(.22,1,.36,1);
+  }
+  .reveal-year.show{ opacity:1; transform: scale(1); }
+  .years-continue{
+    position:absolute; bottom: calc(var(--safe-bottom) + 48px); left:50%;
+    transform: translateX(-50%) translateY(14px);
+    padding: 15px 42px;
+    border-radius: 999px;
+    background: rgba(124,92,255,0.1);
+    border: 1px solid rgba(124,92,255,0.6);
+    color: var(--ink);
+    letter-spacing: 0.2em;
+    text-transform: lowercase;
+    font-size: 0.95rem;
+    opacity:0;
+    pointer-events:none;
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  .years-continue.show{ opacity:1; pointer-events:auto; transform: translateX(-50%) translateY(0); }
+
+  /* ---------- Scene 8: final ---------- */
+  #scene-final{
+    background:#000;
+    flex-direction:column;
+    justify-content:flex-start;
+    align-items: center;
+    padding-top: calc(var(--safe-top) + 30px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+  #final-stars{ position:absolute; top:0; left:0; width:100%; height: 52%; pointer-events:none; }
+  .final-message{
+    position: relative;
+    margin-top: 46vh;
+    margin-bottom: calc(var(--safe-bottom) + 40px);
+    width: min(86vw, 480px);
+    text-align:center;
+    font-size: clamp(1.1rem, 4.4vw, 1.5rem);
+    line-height: 1.6;
+    color: var(--ink);
+    opacity: 0;
+    transition: opacity 1.6s ease;
+    letter-spacing: 0.01em;
+    white-space: pre-wrap;
+  }
+  .final-message.show{ opacity: 1; }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- SCENE 1 -->
+  <section class="scene active" id="scene-press">
+    <button class="press-btn" id="press-btn">press</button>
+  </section>
+
+  <!-- SCENE 2 -->
+  <section class="scene" id="scene-binary">
+    <canvas id="binary-canvas"></canvas>
+  </section>
+
+  <!-- SCENE 3 -->
+  <section class="scene" id="scene-ttt">
+    <div class="ttt-wrap">
+      <div class="ttt-title">three in a row</div>
+      <div class="ttt-board" id="ttt-board"></div>
+      <div class="ttt-msg" id="ttt-msg"></div>
+    </div>
+  </section>
+
+  <!-- SCENE 4 -->
+  <section class="scene" id="scene-click">
+    <div class="click-hint">catch it</div>
+    <button class="click-btn" id="click-btn" style="top:50%; left:50%; transform:translate(-50%,-50%);">click it</button>
+  </section>
+
+  <!-- SCENE 5 -->
+  <section class="scene" id="scene-quiz">
+    <div class="quiz-wrap">
+      <div class="quiz-eyebrow">no one can read the answers</div>
+
+      <div class="quiz-q">
+        <label>are you excited for the 15th year?</label>
+        <textarea data-q="1" rows="2"></textarea>
+      </div>
+      <div class="quiz-q">
+        <label>how do you feel being 15?</label>
+        <textarea data-q="2" rows="2"></textarea>
+      </div>
+      <div class="quiz-q">
+        <label>are you happy to be 15?</label>
+        <textarea data-q="3" rows="2"></textarea>
+      </div>
+      <div class="quiz-q">
+        <label>why?</label>
+        <textarea data-q="4" rows="2"></textarea>
+      </div>
+
+      <button class="quiz-continue" id="quiz-continue">continue</button>
+    </div>
+  </section>
+
+  <!-- SCENE 6 -->
+  <section class="scene" id="scene-ocean">
+    <div class="ocean-hint">find your 15th year (you can move by touching the screen)</div>
+    <canvas id="ocean-canvas"></canvas>
+  </section>
+
+  <!-- SCENE 7 -->
+  <section class="scene" id="scene-years">
+    <div id="years-flurry" style="position:absolute; inset:0;"></div>
+    <div class="reveal-year" id="reveal-year">2011</div>
+    <button class="years-continue" id="years-continue">continue</button>
+  </section>
+
+  <!-- SCENE 8 -->
+  <section class="scene" id="scene-final">
+    <canvas id="final-stars"></canvas>
+    <!-- ============================================================
+         EDIT THE BIRTHDAY MESSAGE HERE. This is the only text you
+         need to change for the whole website.
+         ============================================================ -->
+    <div class="final-message" id="final-message">Happy bday, I hope you enjoyed this little website I made for you, I feel like wishing something like money, sucess, or good grades isnt enough, so Im gonna wish you this: I wish you that when you die the last seconds when you recall all your life wont be sad seconds, I wish you that you go through life just the way you want to go through it, I wish you that you will find someone who will want to go through it with you no matter the shaky moments, I dont want to wish you no problems because thats fariytale stupid, I wish you the strenght to solve those problems, the strenght to never give up on things, but I also wish you the mind to recognize how to solve them, and finally I wish you people that are willingly to help you through these problems, theres so much more I want to wish you but I cannot put all these things here, I just wish you Happy Birthday Nina";
+</div>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     EDITABLE: final birthday message.
+     Change ONLY the text inside the quotes below.
+     ============================================================ */
+  const FINAL_MESSAGE = "Happy bday, I hope you enjoyed this little website I made for you, I feel like wishing something like money, sucess, or good grades isnt enough, so Im gonna wish you this: I wish you that when you die the last seconds when you look at all your life wont be sad or unsatisfied seconds, I wish you that you go through life just the way you want to go through it, I wish you that you will find someone who will want to go through it with you no matter the uncertain moments, I dont want to wish you no problems because thats some fairy tale bullshit, instead I wish you the strenght to solve those problems, the preservence to never give in to those problems, but I also wish you the wisdom to think of solutions to how solve them, and finally I wish you people that are willingly to help you through these problems, theres so much more I want to wish you but I cannot put all these things here, I just wish you Happy Birthday Nina.";
+
+  /* ============================================================
+     EDITABLE: optional timing / tuning
+     ============================================================ */
+  const TIMING = {
+    binaryDuration: 4200,        // ms, scene 2 length
+    tttVictoryWait: 5000,        // ms before auto-advancing after tic-tac-toe win
+    yearRevealHold: 3000,        // ms the year "2011" sits alone before the button appears
+  };
+
+  const app = document.getElementById('app');
+  const scenes = {
+    press: document.getElementById('scene-press'),
+    binary: document.getElementById('scene-binary'),
+    ttt: document.getElementById('scene-ttt'),
+    click: document.getElementById('scene-click'),
+    quiz: document.getElementById('scene-quiz'),
+    ocean: document.getElementById('scene-ocean'),
+    years: document.getElementById('scene-years'),
+    final: document.getElementById('scene-final'),
+  };
+
+  function goTo(name){
+    Object.values(scenes).forEach(s => {
+      if(s.classList.contains('active')){
+        s.classList.remove('active');
+        s.classList.add('leaving');
+        setTimeout(()=> s.classList.remove('leaving'), 700);
+      }
+    });
+    requestAnimationFrame(()=>{
+      scenes[name].classList.add('active');
+    });
+  }
+
+  /* ============================================================
+     SCENE 1 — press
+     ============================================================ */
+  document.getElementById('press-btn').addEventListener('click', function(){
+    this.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+    this.style.opacity = '0';
+    this.style.transform = 'scale(0.7)';
+    setTimeout(()=>{
+      goTo('binary');
+      startBinaryAnimation();
+    }, 350);
+  });
+
+  /* ============================================================
+     SCENE 2 — startBinaryAnimation()
+     ============================================================ */
+  function startBinaryAnimation(){
+    const canvas = document.getElementById('binary-canvas');
+    const ctx = canvas.getContext('2d');
+    let w, h, cols, drops, speeds, sizes;
+
+    function resize(){
+      w = canvas.width = canvas.clientWidth * devicePixelRatio;
+      h = canvas.height = canvas.clientHeight * devicePixelRatio;
+      const fontSize = 16 * devicePixelRatio;
+      cols = Math.floor(w / fontSize);
+      drops = new Array(cols).fill(0).map(()=> Math.random() * -h/fontSize);
+      speeds = new Array(cols).fill(0).map(()=> 0.4 + Math.random()*1.4);
+      sizes = new Array(cols).fill(0).map(()=> Math.random() < 0.12 ? fontSize*1.6 : fontSize);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const fontSize = 16 * devicePixelRatio;
+    let start = performance.now();
+    let accel = 1;
+    let raf;
+
+    function frame(now){
+      const elapsed = now - start;
+      ctx.fillStyle = 'rgba(0,0,0,0.18)';
+      ctx.fillRect(0,0,w,h);
+
+      if(elapsed > TIMING.binaryDuration * 0.7){
+        accel = 1 + (elapsed - TIMING.binaryDuration*0.7) / (TIMING.binaryDuration*0.3) * 1.8;
+      }
+
+      for(let i=0;i<cols;i++){
+        const char = Math.random() < 0.5 ? '0' : '1';
+        const bright = Math.random();
+        const size = sizes[i];
+        ctx.font = size + 'px monospace';
+        const alpha = 0.35 + bright*0.65;
+        ctx.fillStyle = bright > 0.85 ? `rgba(210,255,225,${alpha})` : `rgba(69,255,143,${alpha})`;
+        if(bright > 0.9){
+          ctx.shadowColor = 'rgba(69,255,143,0.9)';
+          ctx.shadowBlur = 8 * devicePixelRatio;
+        } else {
+          ctx.shadowBlur = 0;
+        }
+        const x = i * fontSize;
+        const y = drops[i] * fontSize;
+        ctx.fillText(char, x, y);
+        drops[i] += speeds[i] * accel;
+        if(y > h && Math.random() > 0.975){
+          drops[i] = Math.random() * -20;
+        }
+      }
+
+      if(elapsed < TIMING.binaryDuration){
+        raf = requestAnimationFrame(frame);
+      } else {
+        canvas.style.transition = 'opacity 0.6s ease';
+        canvas.style.opacity = '0';
+        setTimeout(()=>{
+          cancelAnimationFrame(raf);
+          window.removeEventListener('resize', resize);
+          canvas.style.opacity = '1';
+          goTo('ttt');
+          startTicTacToe();
+        }, 550);
+      }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  /* ============================================================
+     SCENE 3 — startTicTacToe()
+     ============================================================ */
+  function startTicTacToe(){
+    const boardEl = document.getElementById('ttt-board');
+    const msgEl = document.getElementById('ttt-msg');
+    msgEl.classList.remove('show');
+    msgEl.textContent = '';
+    boardEl.innerHTML = '';
+
+    let board = Array(9).fill(null);
+    let gameOver = false;
+    const cells = [];
+
+    const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+    function checkWinner(b){
+      for(const [a,c,d] of wins){
+        if(b[a] && b[a]===b[c] && b[a]===b[d]) return b[a];
+      }
+      if(b.every(v=>v)) return 'draw';
+      return null;
+    }
+
+    // easy-ish AI: mostly random, occasionally blocks, rarely wins
+    function aiMove(){
+      const empty = board.map((v,i)=>v?null:i).filter(v=>v!==null);
+      if(empty.length === 0) return;
+
+      // small chance to block an immediate player win, otherwise mostly random
+      if(Math.random() < 0.35){
+        for(const [a,c,d] of wins){
+          const line = [board[a],board[c],board[d]];
+          const idxs = [a,c,d];
+          const xCount = line.filter(v=>v==='X').length;
+          const emptyIdx = idxs[line.findIndex(v=>v===null)];
+          if(xCount === 2 && emptyIdx !== undefined && board[emptyIdx]===null){
+            board[emptyIdx] = 'O';
+            render();
+            return;
+          }
+        }
+      }
+      const choice = empty[Math.floor(Math.random()*empty.length)];
+      board[choice] = 'O';
+      render();
+    }
+
+    function render(){
+      cells.forEach((cell,i)=>{
+        cell.textContent = board[i] || '';
+        cell.classList.toggle('o', board[i]==='O');
+      });
+      const winner = checkWinner(board);
+      if(winner && !gameOver){
+        gameOver = true;
+        if(winner === 'X'){
+          showVictory();
+        } else if(winner === 'draw'){
+          // just reset quietly to keep it winnable
+          setTimeout(resetBoard, 700);
+        } else {
+          setTimeout(resetBoard, 700);
+        }
+      }
+    }
+
+    function resetBoard(){
+      board = Array(9).fill(null);
+      gameOver = false;
+      render();
+    }
+
+    function showVictory(){
+      msgEl.textContent = "you smart as hell, outplayed me like nothin";
+      requestAnimationFrame(()=> msgEl.classList.add('show'));
+      setTimeout(()=>{
+        goTo('click');
+        startButtonGame();
+      }, TIMING.tttVictoryWait);
+    }
+
+    for(let i=0;i<9;i++){
+      const cell = document.createElement('div');
+      cell.className = 'ttt-cell';
+      cell.addEventListener('click', ()=>{
+        if(gameOver || board[i]) return;
+        board[i] = 'X';
+        render();
+        if(!gameOver){
+          setTimeout(aiMove, 380);
+        }
+      });
+      boardEl.appendChild(cell);
+      cells.push(cell);
+    }
+    render();
+  }
+
+  /* ============================================================
+     SCENE 4 — startButtonGame()
+     ============================================================ */
+  function startButtonGame(){
+    const btn = document.getElementById('click-btn');
+    btn.style.top = '50%';
+    btn.style.left = '50%';
+    btn.style.transform = 'translate(-50%,-50%)';
+    btn.style.opacity = '1';
+    btn.style.pointerEvents = 'auto';
+
+    let clicks = 0;
+    const MAX_MOVES = 4; // moves after the initial appearance
+    const btnW = 150, btnH = 58;
+    const margin = 40;
+
+    function randomPosition(){
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const safeTop = 90, safeBottom = 90;
+      const x = margin + Math.random() * (vw - margin*2 - btnW);
+      const y = safeTop + Math.random() * (vh - safeTop - safeBottom - btnH);
+      return {x, y};
+    }
+
+    function move(){
+      const {x,y} = randomPosition();
+      btn.style.transform = 'none';
+      btn.style.left = x + 'px';
+      btn.style.top = y + 'px';
+    }
+
+    function onTap(){
+      clicks++;
+      if(clicks <= MAX_MOVES){
+        move();
+      } else {
+        btn.removeEventListener('click', onTap);
+        btn.style.transition = 'opacity 0.35s ease, transform 0.35s ease';
+        btn.style.opacity = '0';
+        btn.style.transform += ' scale(0.7)';
+        setTimeout(()=>{
+          goTo('quiz');
+          startQuiz();
+        }, 380);
+      }
+    }
+    btn.addEventListener('click', onTap);
+  }
+
+  /* ============================================================
+     SCENE 5 — startQuiz()
+     ============================================================ */
+  function startQuiz(){
+    const textareas = Array.from(document.querySelectorAll('#scene-quiz textarea'));
+    const continueBtn = document.getElementById('quiz-continue');
+    continueBtn.classList.remove('ready');
+
+    textareas.forEach(t => t.value = '');
+
+    function checkReady(){
+      const allFilled = textareas.every(t => t.value.trim().length > 0);
+      continueBtn.classList.toggle('ready', allFilled);
+    }
+    textareas.forEach(t => t.addEventListener('input', checkReady));
+
+    continueBtn.onclick = function(){
+      if(!continueBtn.classList.contains('ready')) return;
+      goTo('ocean');
+      startOcean();
+    };
+  }
+
+  /* ============================================================
+     SCENE 6 — startOcean()
+     ============================================================ */
+  function startOcean(){
+    const canvas = document.getElementById('ocean-canvas');
+    const ctx = canvas.getContext('2d');
+    const sceneEl = document.getElementById('scene-ocean');
+
+    let w, h;
+    function resize(){
+      w = canvas.width = canvas.clientWidth * devicePixelRatio;
+      h = canvas.height = canvas.clientHeight * devicePixelRatio;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // world is much larger than viewport
+    const WORLD_W = 2600, WORLD_H = 3600; // css px "logical" world size
+    let camX = (WORLD_W - window.innerWidth) / 2;
+    let camY = (WORLD_H - window.innerHeight) / 2;
+
+    // place the hidden "15" somewhere non-obvious, not dead center/top
+    const hidden15 = {
+      x: WORLD_W * 0.72,
+      y: WORLD_H * 0.63,
+      found: false,
+      bob: 0,
+    };
+
+    // drag handling
+    let dragging = false, lastX = 0, lastY = 0;
+
+    function clampCam(){
+      camX = Math.max(0, Math.min(WORLD_W - window.innerWidth, camX));
+      camY = Math.max(0, Math.min(WORLD_H - window.innerHeight, camY));
+    }
+    clampCam();
+
+    function pointerDown(e){
+      dragging = true;
+      const p = e.touches ? e.touches[0] : e;
+      lastX = p.clientX; lastY = p.clientY;
+    }
+    function pointerMove(e){
+      if(!dragging) return;
+      const p = e.touches ? e.touches[0] : e;
+      const dx = p.clientX - lastX;
+      const dy = p.clientY - lastY;
+      lastX = p.clientX; lastY = p.clientY;
+      camX -= dx;
+      camY -= dy;
+      clampCam();
+      if(e.cancelable) e.preventDefault();
+    }
+    function pointerUp(){ dragging = false; }
+
+    canvas.addEventListener('touchstart', pointerDown, {passive:true});
+    canvas.addEventListener('touchmove', pointerMove, {passive:false});
+    canvas.addEventListener('touchend', pointerUp);
+    canvas.addEventListener('mousedown', pointerDown);
+    window.addEventListener('mousemove', pointerMove);
+    window.addEventListener('mouseup', pointerUp);
+
+    function handleTap(clientX, clientY){
+      if(hidden15.found) return;
+      const rect = canvas.getBoundingClientRect();
+      const worldX = camX + (clientX - rect.left);
+      const worldY = camY + (clientY - rect.top);
+      const dx = worldX - hidden15.x;
+      const dy = worldY - (hidden15.y + hidden15.bob);
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if(dist < 70){
+        hidden15.found = true;
+        setTimeout(()=>{
+          cleanup();
+          goTo('years');
+          startYearAnimation();
+        }, 500);
+      }
+    }
+    let tapStart = null;
+    canvas.addEventListener('touchstart', (e)=>{
+      const t = e.touches[0];
+      tapStart = {x:t.clientX, y:t.clientY, time: Date.now()};
+    }, {passive:true});
+    canvas.addEventListener('touchend', (e)=>{
+      if(tapStart && Date.now() - tapStart.time < 300){
+        handleTap(tapStart.x, tapStart.y);
+      }
+    });
+    canvas.addEventListener('click', (e)=> handleTap(e.clientX, e.clientY));
+
+    function cleanup(){
+      window.removeEventListener('resize', resize);
+      window.removeEventListener('mousemove', pointerMove);
+      window.removeEventListener('mouseup', pointerUp);
+      cancelAnimationFrame(raf);
+    }
+
+    // gentle wave dots field for texture
+    const dots = [];
+    for(let i=0;i<160;i++){
+      dots.push({
+        x: Math.random()*WORLD_W,
+        y: Math.random()*WORLD_H,
+        r: 0.6 + Math.random()*1.8,
+        phase: Math.random()*Math.PI*2,
+      });
+    }
+
+    let raf;
+    let t0 = performance.now();
+    function frame(now){
+      const t = (now - t0) / 1000;
+      const dpr = devicePixelRatio;
+      ctx.clearRect(0,0,w,h);
+
+      // background gradient
+      const grad = ctx.createLinearGradient(0,0,0,h);
+      grad.addColorStop(0, '#050212');
+      grad.addColorStop(0.5, '#0a0518');
+      grad.addColorStop(1, '#160a2e');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,w,h);
+
+      // wave layers (based on camera position for parallax)
+      for(let layer=0; layer<3; layer++){
+        const speed = 0.15 + layer*0.12;
+        const amp = 14 + layer*10;
+        const spacing = 46 - layer*8;
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(124,92,255,${0.08 + layer*0.05})`;
+        ctx.lineWidth = 1.4 * dpr;
+        for(let rowY = -100; rowY < window.innerHeight + 100; rowY += spacing){
+          ctx.moveTo(0, (rowY + Math.sin(t*speed + rowY*0.02)*amp - (camY*0.0)*0) * dpr);
+          for(let x=0; x<=window.innerWidth; x+=24){
+            const worldX = camX + x;
+            const y = rowY + Math.sin(t*speed + worldX*0.012 + rowY*0.03)*amp
+                      + Math.sin(t*speed*0.6 + worldX*0.005)*amp*0.4;
+            ctx.lineTo(x*dpr, y*dpr);
+          }
+        }
+        ctx.stroke();
+      }
+
+      // sparkle dots (world-space, transformed by camera)
+      dots.forEach(d=>{
+        const sx = (d.x - camX);
+        const sy = (d.y - camY) + Math.sin(t*0.5 + d.phase)*6;
+        if(sx < -20 || sx > window.innerWidth+20 || sy < -20 || sy > window.innerHeight+20) return;
+        const flicker = 0.4 + 0.6*Math.abs(Math.sin(t*0.8 + d.phase*3));
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(200,180,255,${0.25*flicker})`;
+        ctx.arc(sx*dpr, sy*dpr, d.r*dpr, 0, Math.PI*2);
+        ctx.fill();
+      });
+
+      // hidden 15
+      if(!hidden15.found){
+        hidden15.bob = Math.sin(t*0.9)*14;
+        const sx = (hidden15.x - camX) * dpr;
+        const sy = (hidden15.y - camY + hidden15.bob) * dpr;
+        const pulse = 0.6 + 0.4*Math.abs(Math.sin(t*1.3));
+        ctx.save();
+        ctx.font = `700 ${64*dpr}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = `rgba(180,150,255,${0.8*pulse})`;
+        ctx.shadowBlur = 30*dpr*pulse;
+        ctx.fillStyle = `rgba(230,220,255,${0.55 + 0.25*pulse})`;
+        ctx.fillText('15', sx, sy);
+        ctx.restore();
+      }
+
+      raf = requestAnimationFrame(frame);
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+  /* ============================================================
+     SCENE 7 — startYearAnimation()
+     ============================================================ */
+  function startYearAnimation(){
+    const flurry = document.getElementById('years-flurry');
+    const revealEl = document.getElementById('reveal-year');
+    const continueBtn = document.getElementById('years-continue');
+    flurry.innerHTML = '';
+    revealEl.classList.remove('show');
+    continueBtn.classList.remove('show');
+
+    const years = [2010,2009,2007,2000,2013,2012,2015,2024,1999,2005,2003,1998,2014,2008,2001,2016,1997,2011,2006,2004,2002,1996,2017,2018,1995,2019,2020];
+
+    let spawned = 0;
+    const totalToSpawn = 42;
+    let intervalTime = 140;
+    let timer;
+
+    function spawnYear(){
+      const el = document.createElement('div');
+      el.className = 'year-fly';
+      el.textContent = years[Math.floor(Math.random()*years.length)];
+      const size = 1.4 + Math.random()*3.2;
+      el.style.fontSize = size + 'rem';
+      const x = 10 + Math.random()*80;
+      const y = 10 + Math.random()*80;
+      el.style.left = x + '%';
+      el.style.top = y + '%';
+      el.style.opacity = '0';
+      const rot = (Math.random()*40 - 20);
+      el.style.transform = `translate(-50%,-50%) rotate(${rot}deg) scale(0.6)`;
+      el.style.color = Math.random() < 0.3 ? 'rgba(124,92,255,0.9)' : 'rgba(255,255,255,0.85)';
+      el.style.filter = Math.random() < 0.2 ? 'blur(2px)' : 'none';
+      el.style.transition = 'opacity 0.25s ease, transform 0.35s ease';
+      flurry.appendChild(el);
+      requestAnimationFrame(()=>{
+        el.style.opacity = String(0.5 + Math.random()*0.5);
+        el.style.transform = `translate(-50%,-50%) rotate(${rot}deg) scale(1)`;
+      });
+      setTimeout(()=>{
+        el.style.opacity = '0';
+        el.style.transform += ' scale(1.3)';
+        setTimeout(()=> el.remove(), 300);
+      }, 260 + Math.random()*220);
+    }
+
+    function loop(){
+      spawnYear();
+      spawned++;
+      if(spawned < totalToSpawn){
+        intervalTime = Math.max(35, intervalTime - 3); // accelerate
+        timer = setTimeout(loop, intervalTime);
+      } else {
+        setTimeout(reveal, 250);
+      }
+    }
+    loop();
+
+    function reveal(){
+      flurry.innerHTML = '';
+      revealEl.classList.add('show');
+      setTimeout(()=>{
+        continueBtn.classList.add('show');
+      }, TIMING.yearRevealHold);
+    }
+
+    continueBtn.onclick = function(){
+      goTo('final');
+      showFinalPage();
+    };
+  }
+
+  /* ============================================================
+     SCENE 8 — showFinalPage()
+     ============================================================ */
+  let finalStarsStarted = false;
+  function showFinalPage(){
+    const msgEl = document.getElementById('final-message');
+    msgEl.textContent = FINAL_MESSAGE;
+    msgEl.classList.remove('show');
+    setTimeout(()=> msgEl.classList.add('show'), 300);
+
+    if(finalStarsStarted) return;
+    finalStarsStarted = true;
+
+    const canvas = document.getElementById('final-stars');
+    const ctx = canvas.getContext('2d');
+    let w,h;
+    function resize(){
+      w = canvas.width = canvas.clientWidth * devicePixelRatio;
+      h = canvas.height = canvas.clientHeight * devicePixelRatio;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    /* EDITABLE: star count / speed */
+    const STAR_COUNT = 90;
+    const stars = new Array(STAR_COUNT).fill(0).map(()=>({
+      x: Math.random(),
+      y: Math.random(),
+      r: 0.5 + Math.random()*1.4,
+      phase: Math.random()*Math.PI*2,
+      speed: 0.15 + Math.random()*0.3,
+      drift: (Math.random()-0.5)*0.004,
+    }));
+
+    let raf;
+    function frame(now){
+      const t = now/1000;
+      ctx.clearRect(0,0,w,h);
+      stars.forEach(s=>{
+        s.x += s.drift * 0.02;
+        if(s.x < 0) s.x = 1; if(s.x > 1) s.x = 0;
+        const twinkle = 0.35 + 0.65*Math.abs(Math.sin(t*s.speed + s.phase));
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(255,255,255,${0.5*twinkle})`;
+        ctx.arc(s.x*w, s.y*h, s.r*devicePixelRatio, 0, Math.PI*2);
+        ctx.fill();
+      });
+      raf = requestAnimationFrame(frame);
+    }
+    raf = requestAnimationFrame(frame);
+  }
+
+})();
+</script>
+</body>
+</html>
